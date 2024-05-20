@@ -1,0 +1,133 @@
+---
+title: "COVID-19 Exploratory Data Analysis Report "
+author: "Melchizedek Ackah-Blay"
+date: "2024-03-06"
+output: html_document
+---
+# Introduction
+
+COVID-19 is a highly contagious respiratory illness caused by the SARS-CoV-2 virus. It spreads primarily through respiratory droplets expelled when an infected person coughs, sneezes, or talks. Common symptoms include fever, cough, fatigue, and loss of taste or smell. Prevention measures involve wearing masks, social distancing, and frequent hand washing. While most cases are mild, some individuals are at higher risk of severe illness, including the elderly and those with underlying medical conditions like heart disease, diabetes, or compromised immune systems. Treatments range from supportive care to antiviral medications and new vaccines to help protect against severe disease.
+
+# Data Cleaning/Preparation
+
+This portion of the project took quite soem time because I have getting errors anytime I tried to import the data for coronavirus or comorbidity. I did not realize early on that we had to 'supress' the warnings, messages, and startupmessages. After doing that, it resolved all the importing errors I was facing. To merge the datasets, I first opened them in excel. The comorbidity xlsx file had only one column so it was a breeze; It contained data (from my understanding) about illnesses that contribute to health problems of the patients. The coronavirus xlsx file had more data including patient name, age, whether or not they had coronavirus, the contry they are from, among others. To merge the datasets, I had to find columns in both files that had they same data. Thankfully, both datasets had 'ID' as columns. I did an inner join on 'ID' to merge both files into a new dataset I called 'merge'. Ages over 120 were to be put in the NA colummn (ie. discarded) and then I had to do a mini-merge where I combined the data in both 'Mainland China' & 'China.'
+
+```{r}
+# import libraries
+# Load necessary packages
+library(readxl)
+library(dplyr)
+
+# Suppress output, warnings, and messages for this code chunk
+suppressPackageStartupMessages({
+  suppressWarnings({
+    suppressMessages({
+      
+      # Read data from coronavirus.xlsx and comorbid.xlsx
+      coronavirus <- read_excel("coronavirus.xlsx")
+      comorbidity <- read_excel("comorbidity.xlsx")
+      
+      # Merge the two datasets, keeping observations that exist in both files
+      merged <- inner_join(coronavirus, comorbidity, by = "ID")
+      
+      # Recode Age values greater than or equal to 120 to NA
+      merged$Age[merged$Age >= 120] <- NA
+      
+      # Recode 'Mainland China' to 'China' in the Country variable
+      merged$Country[merged$Country == 'Mainland China'] <- 'China'
+      
+     
+      
+    })
+  })
+})
+
+
+```
+
+
+
+# Exploratory Data Analysis
+
+This section was the most detailed granted it is the bulk of the data analysis. Once again I had to supress the warning and messages. Succeeeding that, I had to count the number of observations in the merged dataset which I did using 'nrow' to count the rows in a variable I named 'observations' for simplicity. I also had to count the number of varibles, for this I used the 'ncol' and named the variable 'variables' for simplicity sake. For the next question, I had to calculate the percentage of patients that are female. First I had to go through the coronavirus xlsx file to look if there is a gender or sex column. I found a sex column which had binary option (M or F) for male or female. I then computed 'mergedSex' == "F" to go through the Sex column in the merged dataset for any female (F). This is a logical statement where 'merged$Sex' represents true. I then found the mean of that expression to deduce a average number of times a Sex in the Sex column is F/Female. I multiplied it by 100 to get the percentage
+```{r}
+
+
+library(dplyr)
+
+# Suppress output, warnings, and messages for this code chunk
+suppressPackageStartupMessages({
+  suppressWarnings({
+    suppressMessages({
+      
+  # a. number of observations
+  observations <- nrow(merged)
+    
+      
+  # b. number of variables
+  variables <- ncol(merged)
+  
+  # c. percentage of patients that are female
+  percentage_of_females <- mean(merged$Sex == "F") * 100
+  
+  # d. median age of patients with coronavirus (filtering for those who have covid by selecting patients with coronavirus = 1)
+  median_age <- median(merged$Age[merged$CoronaVirus == 1], na.rm = TRUE)
+  
+  # e - mean age of patient who died from coronavirus
+  mean_died <- mean(merged$Age[merged$Death == 1 & merged$CoronaVirus == 1], na.rm = TRUE)
+      
+  # e - standard deviation of patients who died from coronavirus 
+  standard_dev_died <- sd(merged$Age[merged$Death == 1 & merged$CoronaVirus == 1], na.rm = TRUE)
+  
+  #f. % of coronavirus patients who live in: China, Italy and the US
+  
+      # first we need to find how many patients had coronavirus by filtering the 'CoronaVirus' row for patients with a value of 1
+      had_covid <- filter(merged, CoronaVirus == 1)
+      
+      # second, we count the number of rows of patients in our filter (has_covid) to calculate the total number of patients with coronavirus
+      covid_patients <- nrow(had_covid)
+      
+      # finally we calculate the % for each country. we multiple by 100 to get the percentage
+      chinese_patients_percentage <- mean(had_covid$Country == "China") * 100
+      italian_patients_percentage <- mean(had_covid$Country == "Italy") * 100
+      american_patients_percentage <- mean(had_covid$Country == "US") * 100
+  
+  # g. commodities related 
+      comorbidity_percentages <- had_covid %>% group_by(Comorbidity) %>%
+         summarise(Percentage = n() / covid_patients * 100) %>%
+        arrange(desc(Percentage))
+      
+  
+
+    })
+  })
+})
+
+```
+
+
+
+
+# Data Visualization
+
+For the data visualization, we were told to use a boxplot to present the  data for the age vs coronavirus
+variable. For this, I first tried using the ggplot function but for some reason it was not working so I used the generic boxplot function. I had Age on the y-axis and named ylab as 'Age.' I had Coronavirus in the x-axis named in the xlab as 'CoronaVirus' and then I had the title in main as 'Boxplot of Age by Coronavirus Variable.' The data I was using was the merged data so I had it in there. Since the coronavirus varible is in two parts, those with and those without covid, I had to split into two: 'Doesn't have Coronavirus' and 'Has Coronavirus.' The final output were two gray boxplots so I added colors to easily differentiate between them. I made the covid group orange and the no-covid group blue. I later on added colors to other parts of the boxplots for aesthetics 
+
+```{r}
+colors <-  c("#1f77b4", "#ff7f0e")
+
+boxplot(Age ~ CoronaVirus, data = merged,
+        main = "Boxplot of Age by Coronavirus Variable",
+        xlab = "CoronaVirus",
+        ylab = "Age",
+        names = c("Doesn't have Coronavirus", "Has Coronavirus"), col = colors, col.main = "#006400", col.lab = "#006400")
+```
+
+
+
+
+
+
+# References
+
+He, F., Deng, Y., & Li, W. (2020). Coronavirus disease 2019: What we know? Journal of Medical Virology, 92(7), 719-725. https://doi.org/10.1002/jmv.25766
